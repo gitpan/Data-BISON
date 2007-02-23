@@ -3,38 +3,23 @@ package Data::BISON::Decoder;
 use warnings;
 use strict;
 use Carp;
+use Data::BISON::Constants;
 use Data::BISON::yEnc qw(decode_yEnc);
 use Encode qw();
 use Config;
 
-use version; our $VERSION = qv( '0.0.1' );
+use version; our $VERSION = qv( '0.0.3' );
 
 our @ISA = qw(Data::BISON::Base);
 use Data::BISON::Base {};
 
-use constant BMF  => 'FMB';
-use constant PWL  => 'pwl';
-use constant UTF8 => 'UTF-8';
-use constant {
-    NULL   => 0x01,
-    UNDEF  => 0x02,
-    TRUE   => 0x03,
-    FALSE  => 0x04,
-    INT8   => 0x05,
-    INT16  => 0x06,
-    INT24  => 0x07,
-    INT32  => 0x08,
-    INT40  => 0x09,
-    INT48  => 0x0A,
-    INT56  => 0x0B,
-    INT64  => 0x0C,
-    FLOAT  => 0x0D,
-    DOUBLE => 0x0E,
-    STRING => 0x0F,
-    ARRAY  => 0x10,
-    OBJECT => 0x11,
-    STREAM => 0x12,
-};
+sub _make_object {
+    my ( $self, $obj ) = @_;
+    if ( $self->{backref} ) {
+        push @{ $self->{objects} }, $obj;
+    }
+    return $obj;
+}
 
 sub _decode_int {
     my ( $self, $type, $data ) = @_;
@@ -88,30 +73,88 @@ sub _decode_string {
 sub _decode_size {
     my ( $self, $data ) = @_;
     my ( $lo, $hi ) = splice @$data, 0, 2;
-    return $lo + 256 * $hi;
+    my $size = $lo + 256 * $hi;
+    if ( $self->{version} > 1 && $size & 0x8000 ) {
+        $size &= 0x7FFF;
+        my ( $lo, $hi ) = splice @$data, 0, 2;
+        $size += ( $lo + 256 * $hi ) << 15;
+    }
+    return $size;
+}
+
+sub _decode_version {
+    my ( $self, $data ) = @_;
+    my ( $tag, $lo, $hi ) = splice @$data, 0, 3;
+    my $version = $lo + 256 * $hi;
+
+    $self->{version} = $version & 0x7FFF;
+    $self->{backref} = $version & 0x8000;
 }
 
 sub _decode_array {
     my ( $self, $type, $data ) = @_;
     my $size = $self->_decode_size( $data );
-    my @ar   = ();
+    my $ar = $self->_make_object( [] );
     for ( 1 .. $size ) {
-        push @ar, $self->_decode( $data );
+        push @$ar, $self->_decode( $data );
     }
 
-    return \@ar;
+    return $ar;
+}
+
+sub _read_hash {
+    my ( $self, $data, $size ) = @_;
+    my $obj = $self->_make_object( {} );
+    for ( 1 .. $size ) {
+        my $key = $self->_decode_string( STRING, $data );
+        $obj->{$key} = $self->_decode( $data );
+    }
+    return $obj;
 }
 
 sub _decode_hash {
     my ( $self, $type, $data ) = @_;
     my $size = $self->_decode_size( $data );
-    my %hash = ();
-    for ( 1 .. $size ) {
-        my $key = $self->_decode_string( STRING, $data );
-        $hash{$key} = $self->_decode( $data );
+    return $self->_read_hash( $data, $size );
+}
+
+sub _decode_object {
+    my ( $self, $type, $data ) = @_;
+    my $size = $self->_decode_size( $data );
+    my $class = $self->_decode_string( STRING, $data );
+
+    # TODO: Map classname here
+
+    # Validate it. We don't want to eval just /anything/
+    die "Bad class name '$class'\n"
+      unless $class =~ /^ \w+ (?: :: \w+ ) * $/x;
+
+    # TODO: Find out whether the class exists before we attempt to use
+    # it - it may have been defined in some other package.
+    # Try to load the class
+    eval "use $class";
+    if ( $@ ) {
+        chomp $@;
+        die "Failed to load class ($@)\n";
     }
 
-    return \%hash;
+    my $obj = $self->_read_hash( $data, $size );
+
+    return bless $obj, $class;
+}
+
+sub _decode_backref {
+    my ( $self, $type, $data ) = @_;
+
+    die "Unexpected backref\n"
+      unless $self->{backref};
+
+    my $ref = $self->_decode_size( $data );
+
+    die "Backref out of range\n"
+      if $ref < 0 || $ref >= @{ $self->{objects} };
+
+    return $self->{objects}->[$ref];
 }
 
 sub _decode_stream {
@@ -141,6 +184,8 @@ my @TYPE_MAP = (
     sub { my $self = shift; return $self->_decode_array( @_ ) },
     sub { my $self = shift; return $self->_decode_hash( @_ ) },
     sub { my $self = shift; return $self->_decode_stream( @_ ) },
+    sub { my $self = shift; return $self->_decode_object( @_ ) },
+    sub { my $self = shift; return $self->_decode_backref( @_ ) },
 );
 
 sub _decode {
@@ -149,10 +194,19 @@ sub _decode {
 
     my $type = shift @$data;
     die "Unexpected end of data\n"
-        unless defined $type;
-    
+      unless defined $type;
+
     if ( my $handler = $TYPE_MAP[$type] ) {
-        return $handler->( $self, $type, $data );
+        my $obj = $handler->( $self, $type, $data );
+
+        # We only push scalars here to save doing it in the individual
+        # handlers. HASHes, ARRAYs and OBJECTs must push themselves
+        # early in case they contain a reference to themself.
+
+        if ( $type < ARRAY && $self->{backref} ) {
+            push @{ $self->{objects} }, $obj;
+        }
+        return $obj;
     }
     else {
         die sprintf( "Unrecognised object type 0x%02x\n", $type );
@@ -161,6 +215,10 @@ sub _decode {
 
 sub decode {
     my $self = shift;
+
+    $self->{version} = 1;
+    $self->{backref} = 0;
+    $self->{objects} = [];
 
     croak __PACKAGE__ . "->decode takes a single argument"
       unless @_ == 1;
@@ -172,11 +230,15 @@ sub decode {
     }
 
     croak "Unrecognised BISON data (no signature found)"
-      unless substr( $data, 0, 3 ) eq BMF;
+      unless substr( $data, 0, 3 ) eq FMB;
 
     my @data = map { ord $_ } split //, $data;
     my $len = @data;
     splice @data, 0, 3;
+
+    if ( @data && $data[0] == VERSION ) {
+        $self->_decode_version( \@data );
+    }
 
     my $obj = eval { $self->_decode( \@data ) };
 
@@ -199,7 +261,7 @@ Data::BISON::Decoder - Decode a BISON encoded data structure.
 
 =head1 VERSION
 
-This document describes Data::BISON::Decoder version 0.0.1
+This document describes Data::BISON::Decoder version 0.0.3
 
 =head1 SYNOPSIS
 
@@ -240,7 +302,7 @@ The returned value is a scalar, hash reference or array reference.
 
 =item C<< Unrecognised BISON data (no signature found) >>
 
-You attempted to decode data that didn't start with the BISON signature 'BMF'.
+You attempted to decode data that didn't start with the BISON signature 'FMB'.
 
 =item C<< Unrecognised object type %s at offset %s in data stream >>
 

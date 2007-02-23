@@ -2,6 +2,7 @@ Changes
 doc/BISON_specification_1_0.pdf
 lib/Data/BISON.pm
 lib/Data/BISON/Base.pm
+lib/Data/BISON/Constants.pm
 lib/Data/BISON/Decoder.pm
 lib/Data/BISON/Encoder.pm
 lib/Data/BISON/yEnc.pm
@@ -15,5 +16,6 @@ t/30.yenc.t
 t/40.roundtrip.t
 t/pod-coverage.t
 t/pod.t
+TODO
 META.yml                                 Module meta-data (added by MakeMaker)
 SIGNATURE                                Public-key signature (added by MakeMaker)

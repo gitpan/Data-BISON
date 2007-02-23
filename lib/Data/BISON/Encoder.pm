@@ -3,51 +3,33 @@ package Data::BISON::Encoder;
 use warnings;
 use strict;
 use Carp;
+use Data::BISON::Constants;
 use Data::BISON::yEnc qw(encode_yEnc);
 use Scalar::Util qw(blessed);
 use Scalar::Util::Numeric qw(isnum isint isfloat);
 use Encode qw();
 use Config;
 
-use version; our $VERSION = qv( '0.0.1' );
+use version; our $VERSION = qv( '0.0.3' );
 
 our @ISA = qw(Data::BISON::Base);
 use Data::BISON::Base {
     yenc    => { default => 0 },
     double  => { default => 0 },
     version => {
-        default => '0.0.1',
+        default => MIN_VER,
         set     => sub {
-            my ( $self, $attr, $val ) = @_;
-            croak "Version must be 0.0.1"
-              unless $val eq '0.0.1';
-            $self->{$attr} = $val;
+            my ( $self, $attr, $ver ) = @_;
+            if ( $ver < MIN_VER || $ver > CUR_VER ) {
+                my $desc = ( MIN_VER == CUR_VER )
+                  ? MIN_VER
+                  : 'between ' . MIN_VER . ' and ' . CUR_VER;
+                croak "Version must be $desc";
+            }
+            $self->{$attr} = $ver;
         },
     },
     sort => { default => 0 },
-};
-
-use constant BMF  => 'FMB';
-use constant UTF8 => 'UTF-8';
-use constant {
-    NULL   => 0x01,
-    UNDEF  => 0x02,
-    TRUE   => 0x03,
-    FALSE  => 0x04,
-    INT8   => 0x05,
-    INT16  => 0x06,
-    INT24  => 0x07,
-    INT32  => 0x08,
-    INT40  => 0x09,
-    INT48  => 0x0A,
-    INT56  => 0x0B,
-    INT64  => 0x0C,
-    FLOAT  => 0x0D,
-    DOUBLE => 0x0E,
-    STRING => 0x0F,
-    ARRAY  => 0x10,
-    OBJECT => 0x11,
-    STREAM => 0x12,
 };
 
 my @INT_LEN = ( NULL, INT8, INT16, INT24, INT32 );
@@ -147,7 +129,7 @@ sub _encode_obj {
     }
     elsif ( my $type = ref $obj ) {
         if ( $type eq 'HASH' ) {
-            return chr( OBJECT ) . $self->_encode_hash( $obj );
+            return chr( HASH ) . $self->_encode_hash( $obj );
         }
         elsif ( $type eq 'ARRAY' ) {
             return chr( ARRAY ) . $self->_encode_array( $obj );
@@ -172,7 +154,7 @@ sub _encode_obj {
 sub _encode {
     my $self = shift;
 
-    return BMF . $self->_encode_obj( shift );
+    return FMB . $self->_encode_obj( shift );
 }
 
 sub encode {
@@ -197,11 +179,11 @@ __END__
 
 =head1 NAME
 
-Data::BISON::Encoder - [One line description of module's purpose here]
+Data::BISON::Encoder - Encode a BISON encoded data structure.
 
 =head1 VERSION
 
-This document describes Data::BISON::Encoder version 0.0.1
+This document describes Data::BISON::Encoder version 0.0.3
 
 =head1 SYNOPSIS
 
@@ -257,7 +239,7 @@ Data::BISON::Decoder automatically detects and handles yEnc encoding.
 =item * version
 
 Set the version of the BISON specification to use for encoding.
-Currently only '0.0.1' is supported.
+Currently only version 1 is supported.
 
 =back
 
@@ -276,7 +258,7 @@ representation of the data.
     my $d2 = $encoder->encode( 1.23456 );
     my $d3 = $encoder->encode( [ 4, 5, 6 ] );
 
-As of BISON version 0.0.1 the maximum number of elements for an encoded
+As of BISON version 0.0.3 the maximum number of elements for an encoded
 array or hash is 65535, just like in the olden days. It seems likely
 that this limit will be removed in a future version of BISON. Note that
 this limitation is part of the BISON specification rather than of this
@@ -285,11 +267,11 @@ implementation of it.
 =item C<< version >>
 
 Get or set the version of the BISON format to be used by the encoder.
-Currently only version 0.0.1 is supported.
+Currently only version 0.0.3 is supported.
 
     my $v = $enc->version;
 
-    $enc->version('0.0.1');
+    $enc->version('0.0.3');
 
 =item C<< yenc >>
 
@@ -313,10 +295,10 @@ four byte floats.
 You passed an illegal option to new. The supported options are C<yenc>,
 C<double> and C<version>.
 
-=item C<< Version must be 0.0.1 >>
+=item C<< Version must be 0.0.3 >>
 
 Although you can specify a version to the encoder the only version
-that's currently supported is 0.0.1. The version mechanism will allow
+that's currently supported is 0.0.3. The version mechanism will allow
 compatibility with future versions of the BISON spec.
 
 =item C<< Maximum array / hash size is 65535 >>

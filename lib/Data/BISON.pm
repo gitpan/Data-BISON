@@ -7,7 +7,7 @@ use Data::BISON::Encoder;
 use Data::BISON::Decoder;
 use base qw(Exporter);
 
-use version; our $VERSION = qv( '0.0.1' );
+use version; our $VERSION = qv( '0.0.3' );
 
 our @EXPORT_OK = qw( encode_bison decode_bison );
 
@@ -36,7 +36,7 @@ Data::BISON - Encode or decode a BISON stream
 
 =head1 VERSION
 
-This document describes Data::BISON version 0.0.1
+This document describes Data::BISON version 0.0.3
 
 =head1 SYNOPSIS
 
@@ -104,12 +104,12 @@ respectively for valid options and their meaning.
 
 =item C<< Unrecognised BISON data (no signature found) >>
 
-You attempted to decode data that didn't start with the BISON signature 'BMF'.
+You attempted to decode data that didn't start with the BISON signature 'FMB'.
 
-=item C<< Version must be 0.0.1 >>
+=item C<< Version must be 0.0.3 >>
 
 Although you can specify a version to the encoder the only version
-that's currently supported is 0.0.1. The version mechanism will allow
+that's currently supported is 0.0.3. The version mechanism will allow
 compatibility with future versions of the BISON spec.
 
 =item C<< Maximum array / hash size is 65535 >>

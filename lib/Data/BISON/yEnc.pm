@@ -60,7 +60,7 @@ Data::BISON::yEnc - Implements yEnc encode, decode for Data::BISON
 
 =head1 VERSION
 
-This document describes Data::BISON::yEnc version 0.0.1
+This document describes Data::BISON::yEnc version 0.0.3
 
 =head1 SYNOPSIS
 

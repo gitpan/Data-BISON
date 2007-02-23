@@ -1,9 +1,9 @@
 --- #YAML:1.0
 name:                Data-BISON
-version:             v0.0.1
+version:             v0.0.3
 abstract:            Encode or decode a BISON stream
-license:             ~
-generated_by:        ExtUtils::MakeMaker version 6.31
+license:             perl
+generated_by:        ExtUtils::MakeMaker version 6.32
 distribution_type:   module
 requires:     
     Carp:                          0

@@ -3,8 +3,7 @@ package Data::BISON::Base;
 use warnings;
 use strict;
 use Carp;
-
-use version; our $VERSION = qv( '0.0.1' );
+use base qw(Exporter);
 
 our @ISA;
 
@@ -137,7 +136,7 @@ Data::BISON::Base - Base class for BISON encoder, decoder
 
 =head1 VERSION
 
-This document describes Data::BISON::Base version 0.0.1
+This document describes Data::BISON::Base version 0.0.3
 
 =head1 AUTHOR
 

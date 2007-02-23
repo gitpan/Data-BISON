@@ -1,5 +1,13 @@
 #!/usr/bin/perl
 
+package Flube;
+
+sub new {
+    return bless {}, shift;
+}
+
+package main;
+
 use strict;
 use warnings;
 use Test::More;
@@ -9,7 +17,9 @@ use Data::BISON::Decoder;
 my @tests;
 
 BEGIN {
-    my @FMB = ( 0x46, 0x4d, 0x42 );
+    my @FMB    = ( 0x46, 0x4d, 0x42 );
+    my @FMB2   = ( 0x46, 0x4d, 0x42, 0xFF, 0x02, 0x00 );
+    my @FMB2br = ( 0x46, 0x4d, 0x42, 0xFF, 0x02, 0x80 );
 
     my @hello = ( 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x00 );
     my @abc = ( 0x61, 0x62, 0x63, 0x00 );
@@ -144,7 +154,7 @@ BEGIN {
             expect => [ 'Hello, World', 'Hello, World' ],
         },
 
-        # # Hashes
+        # Hashes
         {
             name    => 'Hash, empty',
             options => {},
@@ -175,6 +185,26 @@ BEGIN {
                 { 'hello' => 'Hello, World', 'abc' => 'xyz' },
                 { 'hello' => 'Hello, World', 'abc' => 'xyz' }
             ],
+        },
+
+        # Version 2 data
+        {
+            name    => 'Simple string, V2',
+            options => {},
+            data    => [ @FMB2, @hello_world ],
+            expect  => 'Hello, World',
+        },
+        {
+            name    => 'Simple string, V2, backref',
+            options => {},
+            data    => [ @FMB2br, @hello_world ],
+            expect  => 'Hello, World',
+        },
+        {
+            name    => 'Backref to string',
+            options => {},
+            data    => [ @FMB2br, 0x10, 0x02, 0x00, @hello_world, 0x14, 0x01, 0x00 ],
+            expect  => [ 'Hello, World', 'Hello, World' ],
         },
 
     );

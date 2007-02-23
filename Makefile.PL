@@ -11,6 +11,7 @@ WriteMakefile(
     AUTHOR        => 'Andy Armstrong <andy@hexten.net>',
     VERSION_FROM  => 'lib/Data/BISON.pm',
     ABSTRACT_FROM => 'lib/Data/BISON.pm',
+    LICENSE       => 'perl',
     PL_FILES      => {},
     PREREQ_PM     => {
         'Test::More'            => 0,
